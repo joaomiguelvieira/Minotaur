@@ -3,15 +3,15 @@ Minotaur is an Arduino-based control board for automatic swing gates. This repos
 
 ![minotaur_installation](img/minotaur_installation.png)
 
-- [The story behind Minotaur](the-story-behind-minotaur)
-- [Disclaimer](disclaimer)
-- [Content of this repository](content-of-this-repository)
-- [Hardware requirements](hardware-requirements)
-- [Getting started](getting-started)
-- [Using Minotaur](using-minotaur)
-  - [Programming mode](programming-mode)
-  - [Normal mode](normal-mode)
-- [Final notes](final-notes)
+- [The story behind Minotaur](#the-story-behind-minotaur)
+- [Disclaimer](#disclaimer)
+- [Content of this repository](#content-of-this-repository)
+- [Hardware requirements](#hardware-requirements)
+- [Getting started](#getting-started)
+- [Using Minotaur](#using-minotaur)
+  - [Programming mode](#programming-mode)
+  - [Normal mode](#normal-mode)
+- [Final notes](#final-notes)
 
 ## The story behind Minotaur
 A long time ago, my father spent over 500 € to install an automatic swing gate system on his property. The system was operational for over ten years, but recently I got a puppy whose favorite hobby was to destroy pretty much everything he could get his paws on (including the gate system). Since the gate system was already old and outdated, I struggled to find a control board that was compatible with the existing hardware. On top of that, the boards I found were too expensive, and the engineering was doubtful.
