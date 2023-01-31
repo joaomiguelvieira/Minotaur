@@ -1,13 +1,12 @@
 /* 
  * Title: Minotaur v2.0 firmware
  * Author: Joao Vieira
- * Date: January 30th, 2023
+ * Date: January 31st, 2023
  * 
- * Description: This is the firmware for the Minotaur board for
- * controlling swing automatic gates. The Minotaur board does not
- * include any ID decoder. That is an extra piece of hardware 
- * that should be connected to the board acting like a button
- * (closed when activated and open when deactivated).
+ * Description: This is the firmware for the Minotaur board for controlling swing
+ * automatic gates. The Minotaur board does not include any ID decoder. That is
+ * an extra piece of hardware that should be connected to the board acting like a
+ * button (closed when activated and open when deactivated).
  */
 
 #include <Arduino_FreeRTOS.h>
@@ -21,9 +20,9 @@
 #include "persistent_var.h"
 
 /*
- * ===================================================================
- * ====================== SENSORS AND ACTUATORS ======================
- * ===================================================================
+ * =============================================================================
+ * =========================== SENSORS AND ACTUATORS ===========================
+ * =============================================================================
  */
 Button
   btn_select (BTN_SELECT),
@@ -45,9 +44,9 @@ MotorArm
 Buzzer buzzer(BUZZER_PIN);
 
 /*
- * ===================================================================
- * ================== VARIABLES STORED IN THE EEPROM =================
- * ===================================================================
+ * =============================================================================
+ * ======================= VARIABLES STORED IN THE EEPROM ======================
+ * =============================================================================
  */
 PersistentVar
   left_arm_open_time,
@@ -58,9 +57,9 @@ PersistentVar
   arms_close_delta;
 
 /*
- * ===================================================================
- * ========================= STATE VARIABLES =========================
- * ===================================================================
+ * =============================================================================
+ * ============================== STATE VARIABLES ==============================
+ * =============================================================================
  */
 bool gate_open = false;
 volatile bool 
@@ -69,15 +68,203 @@ volatile bool
   oc_right_occured = false;
 
 /*
- * ===================================================================
- * ======================= AUXILIARY ROUTINES ========================
- * ===================================================================
+ * =============================================================================
+ * ============================ AUXILIARY ROUTINES =============================
+ * =============================================================================
  */
+void
+bip_buzzer(uint8_t n)
+{
+  for (uint8_t i = 0; i < n; i++)
+  {
+    buzzer.on();
+    vTaskDelay(BUZZER_BIP_T / 2 / portTICK_PERIOD_MS);
+    buzzer.off();
+    vTaskDelay(BUZZER_BIP_T / 2 / portTICK_PERIOD_MS);
+  }
+}
+
+void  
+open_close_cycle()
+{
+  // Start blinking lamp
+  blink_lamp = true;
+  vTaskDelay(OPEN_CLOSE_DELAY / portTICK_PERIOD_MS);
+
+  // Start first arm
+  if (gate_open) arm_right.close(); else arm_left.open();
+  vTaskDelay(
+    (
+      gate_open ?
+      arms_close_delta.get() :
+      arms_open_delta.get()
+    ) / portTICK_PERIOD_MS);
+
+  // Start second arm
+  if (gate_open) arm_left.close(); else arm_right.open();
+  vTaskDelay(
+    (
+      gate_open ?
+      (right_arm_close_time.get() - arms_close_delta.get()) :
+      (left_arm_open_time.get() - arms_open_delta.get())
+    ) / portTICK_PERIOD_MS);
+  
+  // Stop first arm
+  if (gate_open) arm_right.off(); else arm_left.off();
+  vTaskDelay(
+    (
+      gate_open ?
+      (left_arm_close_time.get() - right_arm_close_time.get() + arms_close_delta.get()) :
+      (right_arm_open_time.get() - left_arm_open_time.get() + arms_open_delta.get())
+    ) / portTICK_PERIOD_MS);
+
+  // Stop second arm
+  if (gate_open) arm_left.off(); else arm_right.off();
+
+  // Stop blinking lamp
+  blink_lamp = false;
+
+  // Switch gate state
+  gate_open = !gate_open;
+
+  // Clear oc variables
+  oc_left_occured = oc_right_occured = false;
+}
+
+void
+close_while_pressed()
+{
+  // Close right arm
+  if (btn_fn.isPressed())
+    arm_right.close();
+  // Close left arm
+  else
+    arm_left.close();
+  
+  // Blink lamp while button pressed
+  while(btn_close.isPressed())
+    blink_lamp = true;
+
+  // Switch off both arms
+  arm_left.off();
+  arm_right.off();
+
+  // Stop blinking lamp
+  blink_lamp = false;
+
+  // Clear oc variables
+  oc_left_occured = oc_right_occured = false;
+}
+
+void
+open_while_pressed()
+{
+  // Open right arm
+  if (btn_fn.isPressed())
+    arm_right.open();
+  // Open left arm
+  else
+    arm_left.open();
+  
+  // Blink lamp while button pressed
+  while(btn_close.isPressed())
+    blink_lamp = true;
+
+  // Switch off both arms
+  arm_left.off();
+  arm_right.off();
+
+  // Stop blinking lamp
+  blink_lamp = false;
+
+  // Clear oc variables
+  oc_left_occured = oc_right_occured = false;
+}
+
+void
+program_cycle()
+{
+  // It is assumed that the gate is closed when entering the programming mode
+
+  // Inform user that entered programming mode
+  bip_buzzer(NUMBER_BIPS_BEFORE_PROG);
+
+  // Start blinking lamp
+  blink_lamp = true;  
+
+  // Open left arm
+  while (!btn_select.isPressed()); // wait for btn
+  arm_left.open();
+  unsigned long left_arm_start_open = millis();
+  vTaskDelay(PROG_BTN_DELAY / portTICK_PERIOD_MS);
+
+  // Open right arm
+  while (!btn_select.isPressed()); // wait for btn
+  arm_right.open();
+  unsigned long right_arm_start_open = millis();
+  vTaskDelay(PROG_BTN_DELAY / portTICK_PERIOD_MS);
+
+  // Stop left arm
+  while (!btn_select.isPressed() && !oc_left_occured); // wait for btn or oc left
+  arm_left.off();
+  unsigned long left_arm_stop_open = millis();
+  vTaskDelay(PROG_BTN_DELAY / portTICK_PERIOD_MS);
+
+  // Stop right arm
+  while (!btn_select.isPressed() && !oc_right_occured); // wait for btn or oc right
+  arm_right.off();
+  unsigned long right_arm_stop_open = millis();
+  vTaskDelay(PROG_BTN_DELAY / portTICK_PERIOD_MS);
+
+  // Clear oc variables
+  oc_left_occured = oc_right_occured = false;
+
+  // Close right arm
+  while (!btn_select.isPressed()); // wait for btn
+  arm_right.close();
+  unsigned long right_arm_start_close = millis();
+  vTaskDelay(PROG_BTN_DELAY / portTICK_PERIOD_MS);
+
+  // Close left arm
+  while (!btn_select.isPressed()); // wait for btn
+  arm_left.close();
+  unsigned long left_arm_start_close = millis();
+  vTaskDelay(PROG_BTN_DELAY / portTICK_PERIOD_MS);
+
+  // Stop right arm
+  while (!btn_select.isPressed() && !oc_right_occured); // wait for btn or oc right
+  arm_right.off();
+  unsigned long right_arm_stop_close = millis();
+  vTaskDelay(PROG_BTN_DELAY / portTICK_PERIOD_MS);
+
+  // Stop left arm
+  while (!btn_select.isPressed() && !oc_left_occured); // wait for btn or oc left
+  arm_left.off();
+  unsigned long left_arm_stop_close = millis();
+  vTaskDelay(PROG_BTN_DELAY / portTICK_PERIOD_MS);
+
+  // Clear oc variables
+  oc_left_occured = oc_right_occured = false;
+
+  // Stop blinking lamp
+  blink_lamp = false;
+
+  // Recalculate open and close timings
+  left_arm_open_time.set(left_arm_stop_open - left_arm_start_open);
+  left_arm_close_time.set(left_arm_stop_close - left_arm_start_close);
+  right_arm_open_time.set(right_arm_stop_open - right_arm_start_open);
+  right_arm_close_time.set(right_arm_stop_close - right_arm_start_close);
+  arms_open_delta.set(right_arm_start_open - left_arm_start_open);
+  arms_close_delta.set(left_arm_start_close - right_arm_start_close);
+
+  // Inform user that exited programming mode
+  bip_buzzer(NUMBER_BIPS_AFTER_PROG);
+}
 
 /*
- * ===================================================================
- * ============================== TASKS ==============================
- * ===================================================================
+ * =============================================================================
+ * =================================== TASKS ===================================
+ * =============================================================================
  */
 void
 task_debounce_btns(void *pvParameters)
@@ -138,19 +325,30 @@ task_main(void *pvParameters)
 
   while (true)
   { // Execute task forever
-    blink_lamp = (btn_select.isPressed()) ? true : false;
+    // Open or close cycle
+    if (btn_select.isPressed())
+      open_close_cycle();
+    // Close while pressed
+    else if (btn_close.isPressed())
+      close_while_pressed();
+    // Open while pressed
+    else if (btn_open.isPressed())
+      open_while_pressed();
+    // Program cycle
+    else if (btn_program.isPressed())
+      program_cycle();      
   }
 }
 
 /*
- * ===================================================================
- * ==================== ARDUINO BULT-IN FUNCTIONS ====================
- * ===================================================================
+ * =============================================================================
+ * ========================= ARDUINO BULT-IN FUNCTIONS =========================
+ * =============================================================================
  */
 void
 setup()
 {
-  // Set sensors offset
+  // Set sensors offset on boot
   sensor_left.setOffset();
   sensor_right.setOffset();
   
