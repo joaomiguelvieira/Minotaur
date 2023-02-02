@@ -17,6 +17,7 @@ public:
   // Public methods
   uint16_t getValue();
   void setOffset();
+  uint16_t getOffset();
 
   /*
   * ACS712 Datasheet: https://www.farnell.com/datasheets/1759100.pdf (Ip=20A)

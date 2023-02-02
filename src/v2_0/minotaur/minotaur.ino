@@ -167,7 +167,7 @@ open_while_pressed()
     arm_left.open();
   
   // Blink lamp while button pressed
-  while(btn_close.isPressed())
+  while(btn_open.isPressed())
     blink_lamp = true;
 
   // Switch off both arms
@@ -287,7 +287,7 @@ task_blink_lamp(void *pvParameters)
   (void) pvParameters;
 
   while (true)
-  { // Execute task forever
+  { // Execute task forever0
     if (blink_lamp) {
       lamp.on();
       vTaskDelay(LAMP_BLINK_T / 2 / portTICK_PERIOD_MS);
@@ -302,16 +302,21 @@ task_monitor_sensors(void *pvParameters)
 {
   (void) pvParameters;
 
+  uint16_t sensor_left_max = sensor_left.getOffset() +
+    MAX_CURRENT_VALUE_OVER_OFFSET;
+  uint16_t sensor_right_max = sensor_right.getOffset() +
+    MAX_CURRENT_VALUE_OVER_OFFSET;
+
   while (true)
   { // Execute task forever
     // Left arm overload
-    if (sensor_left.getValue() > MAX_CURRENT_VALUE_OVER_OFFSET) {
+    if (sensor_left.getValue() > sensor_left_max) {
       oc_left_occured = true;
       arm_left.off();
     }
 
     // Right arm overload
-    if (sensor_right.getValue() > MAX_CURRENT_VALUE_OVER_OFFSET) {
+    if (sensor_right.getValue() > sensor_right_max) {
       oc_right_occured = true;
       arm_right.off();
     }

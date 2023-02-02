@@ -7,7 +7,7 @@ CurrentSensor::CurrentSensor(uint8_t pin) :
 uint16_t
 CurrentSensor::getValue()
 {
-  return analogRead(pin) - offset;
+  return analogRead(pin);
 }
 
 void
@@ -20,4 +20,10 @@ float
 CurrentSensor::getAmps()
 {
   return (1.0 * analogRead(pin) - offset) / 20;
+}
+
+uint16_t
+CurrentSensor::getOffset()
+{
+  return offset;
 }
