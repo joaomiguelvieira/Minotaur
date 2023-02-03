@@ -31,6 +31,7 @@ public:
   * The offset depends on Vcc. Therefore, it is obtained for I=0A at boot time.
   */
   float getAmps();
+  float value2Amps(uint16_t value);
 };
 
 #endif //__CURRENT_SENSOR_H__

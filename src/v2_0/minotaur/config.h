@@ -26,6 +26,7 @@
 #define NUMBER_BIPS_AFTER_PROG 2          // Number of bips after exiting programming mode
 #define PROG_BTN_DELAY 500                // Delay after pressing button in programming mode [ms]
 
-#define MAX_CURRENT_VALUE_OVER_OFFSET 100 // Check current_sensor.h for explanation
+#define MAX_CURRENT_VALUE_OVER_OFFSET 200 // Check current_sensor.h for explanation
+#define OC_MAX_T 100                      // Wait for a period to eliminate false alarms [ms]
 
 #endif //__CONFIG_H__

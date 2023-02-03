@@ -298,27 +298,59 @@ task_blink_lamp(void *pvParameters)
 }
 
 void
-task_monitor_sensors(void *pvParameters)
+task_monitor_lsensor(void *pvParameters)
 {
   (void) pvParameters;
 
-  uint16_t sensor_left_max = sensor_left.getOffset() +
-    MAX_CURRENT_VALUE_OVER_OFFSET;
-  uint16_t sensor_right_max = sensor_right.getOffset() +
-    MAX_CURRENT_VALUE_OVER_OFFSET;
+  uint16_t 
+    sensor_value,
+    sensor_max = sensor_left.getOffset() + MAX_CURRENT_VALUE_OVER_OFFSET;
 
   while (true)
   { // Execute task forever
-    // Left arm overload
-    if (sensor_left.getValue() > sensor_left_max) {
-      oc_left_occured = true;
-      arm_left.off();
-    }
+    // OC detected
+    sensor_value = sensor_left.getValue();
+    if (sensor_value > sensor_max) {
+      // Wait for normalization
+      vTaskDelay(OC_MAX_T / 2 / portTICK_PERIOD_MS);
+      sensor_value = sensor_left.getValue();
 
-    // Right arm overload
-    if (sensor_right.getValue() > sensor_right_max) {
-      oc_right_occured = true;
-      arm_right.off();
+      // If it is still over limit stop
+      if (sensor_value > sensor_max)
+      {
+        oc_left_occured = true;
+        arm_left.off();
+        Serial.println((String) "OC Left occured @" + sensor_left.value2Amps(sensor_value) + "A");
+      }
+    }
+  }
+}
+
+void
+task_monitor_rsensor(void *pvParameters)
+{
+  (void) pvParameters;
+
+  uint16_t 
+    sensor_value,
+    sensor_max = sensor_right.getOffset() + MAX_CURRENT_VALUE_OVER_OFFSET;
+
+  while (true)
+  { // Execute task forever
+    // OC detected
+    sensor_value = sensor_right.getValue();
+    if (sensor_value > sensor_max) {
+      // Wait for normalization
+      vTaskDelay(OC_MAX_T / 2 / portTICK_PERIOD_MS);
+      sensor_value = sensor_right.getValue();
+
+      // If it is still over limit stop
+      if (sensor_value > sensor_max)
+      {
+        oc_right_occured = true;
+        arm_right.off();
+        Serial.println((String) "OC Right occured @" + sensor_right.value2Amps(sensor_value) + "A");
+      }
     }
   }
 }
@@ -356,12 +388,16 @@ setup()
   // Set sensors offset on boot
   sensor_left.setOffset();
   sensor_right.setOffset();
+
+  // Debug
+  Serial.begin(9600);
   
   // Create tasks
-  xTaskCreate(task_debounce_btns,   "Debounce buttons", 128, NULL, 3, NULL);
-  xTaskCreate(task_blink_lamp,      "Blink lamp",       128, NULL, 3, NULL);
-  xTaskCreate(task_monitor_sensors, "Monitor sensors",  128, NULL, 3, NULL);
-  xTaskCreate(task_main,            "Main task",        128, NULL, 3, NULL);
+  xTaskCreate(task_debounce_btns,   "Debounce buttons",     128, NULL, 3, NULL);
+  xTaskCreate(task_blink_lamp,      "Blink lamp",           128, NULL, 3, NULL);
+  xTaskCreate(task_monitor_lsensor, "Monitor left sensor",  128, NULL, 3, NULL);
+  xTaskCreate(task_monitor_rsensor, "Monitor right sensor", 128, NULL, 3, NULL);
+  xTaskCreate(task_main,            "Main task",            128, NULL, 3, NULL);
 }
 
 void

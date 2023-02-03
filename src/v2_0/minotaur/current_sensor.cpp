@@ -27,3 +27,9 @@ CurrentSensor::getOffset()
 {
   return offset;
 }
+
+float
+CurrentSensor::value2Amps(uint16_t value)
+{
+  return (1.0 * value - offset) / 20; 
+}
